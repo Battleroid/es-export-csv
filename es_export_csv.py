@@ -23,8 +23,8 @@ def grab(args):
 
     es = Elasticsearch(
         args.host,
-        ssl='https' in args.host,
-        verify=True,
+        use_ssl='https' in args.host,
+        verify_certs=True,
         http_auth=auth
     )
 
