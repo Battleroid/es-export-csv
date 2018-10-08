@@ -1,13 +1,14 @@
 # es-export-csv
 
-This will perform a basic match all query within the date math specific date range (against `@timestamp` field), returning results as a CSV file. I'll probably add more later.
+This will perform a basic match all query within the date math specific date range (against `@timestamp` field), returning results as a CSV file. By default returns as a match all type query, the query string can be specified however.
 
 ## Usage
 
 ```
-usage: es_export_csv.py [-h] [-t TOTAL] [-e HOST] [--from RANGE_FROM]
-                        [--to RANGE_TO] [-o OUTPUT] [--only-source]
-                        [--no-header] [-u USERNAME] [-p PASSWORD]
+usage: es_export_csv.py [-h] [-q QUERY] [-t TOTAL] [-e HOST]
+                        [--from RANGE_FROM] [--to RANGE_TO] [-o OUTPUT]
+                        [--only-source] [--no-header] [-u USERNAME]
+                        [-p PASSWORD]
                         index [fields [fields ...]]
 
 positional arguments:
@@ -17,9 +18,12 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  -q QUERY, --query QUERY
+                        query_string to submit, empty (return everything) by
+                        default (default: None)
   -t TOTAL, --total TOTAL
                         max docs to return (default: 500)
-  -e HOST, --host HOST  cluster API (default: http://localhost:9200)
+  -e HOST, --host HOST  cluster API (default: localhost:9200)
   --from RANGE_FROM     range start (default: now-1d/d)
   --to RANGE_TO         range end (default: now/d)
   -o OUTPUT, --output OUTPUT
@@ -28,7 +32,7 @@ optional arguments:
                         (default: True)
   --no-header           do not write csv header (default: False)
   -u USERNAME, --username USERNAME
-                        basic auth username (default: username)
+                        basic auth username (default: cweed)
   -p PASSWORD, --password PASSWORD
                         basic auth password (default: None)
 ```

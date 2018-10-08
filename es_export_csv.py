@@ -31,12 +31,13 @@ def grab(args):
     if not es.ping():
         raise SystemExit('Cannot authenticate!')
 
+    query_string = args.query
+
     # Build query
     query = {
         'query': {
             'bool': {
                 'must': [
-                    {'match_all': {}},
                     {
                         'range': {
                             '@timestamp': {
@@ -49,6 +50,15 @@ def grab(args):
             }
         }
     }
+
+    if query_string:
+        query['query']['bool']['must'].append({
+            'query_string': {
+                'query': query_string
+            }
+        })
+    else:
+        query['query']['bool']['must'].append({'match_all': {}})
 
     # Search for records
     kwargs = {}
@@ -97,7 +107,7 @@ def grab(args):
 
     # Save as CSV
     with open(args.output, 'w') as f:
-        writer = csv.DictWriter(f, field_names, extrasaction='ignore')
+        writer = csv.DictWriter(f, sorted(field_names), extrasaction='ignore')
         if not args.no_header:
             writer.writeheader()
         writer.writerows(records)
@@ -107,8 +117,9 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('index', help='index to export')
     parser.add_argument('fields', nargs='*', help='limit output to fields (if set) or return all fields')
+    parser.add_argument('-q', '--query', default=None, help='query_string to submit, empty (return everything) by default')
     parser.add_argument('-t', '--total', default=500, help='max docs to return')
-    parser.add_argument('-e', '--host', default='http://localhost:9200', help='cluster API')
+    parser.add_argument('-e', '--host', default='localhost:9200', help='cluster API')
     parser.add_argument('--from', dest='range_from', default='now-1d/d', help='range start')
     parser.add_argument('--to', dest='range_to', default='now/d', help='range end')
     parser.add_argument('-o', '--output', default='results.csv', help='output file')
