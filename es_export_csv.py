@@ -3,6 +3,9 @@ import csv
 from getpass import getpass, getuser
 from datetime import datetime, timedelta
 
+import logging
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
+
 from elasticsearch import Elasticsearch
 
 
@@ -27,9 +30,6 @@ def grab(args):
         verify_certs=True,
         http_auth=auth
     )
-
-    if not es.ping():
-        raise SystemExit('Cannot authenticate!')
 
     query_string = args.query
 
@@ -67,7 +67,11 @@ def grab(args):
     kwargs['body'] = query
     if args.fields:
         kwargs['_source_include'] = args.fields
-    results = es.search(**kwargs)
+
+    try:
+        results = es.search(**kwargs)
+    except:
+        raise SystemExit("Error connecting to ElasticSearch at '{}'. Please ensure that ElasticSearch is running, and your credentials are correct.".format(args.host))
 
     def flatten(d, path=None):
         """
