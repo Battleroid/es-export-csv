@@ -1,13 +1,12 @@
 import argparse
 import csv
+import logging
 from getpass import getpass, getuser
 from datetime import datetime, timedelta
-
-import logging
-logging.getLogger('elasticsearch').setLevel(logging.ERROR)
-
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
+
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
 
 
 def grab(args):
@@ -71,8 +70,8 @@ def grab(args):
 
     try:
         results = None
-        #Scan if we're looking for more than 500 results. Note that size
-        #for scan denotes # of entries retrieved each call.
+        # Scan if we're looking for more than 500 results. Note that size
+        # for scan denotes number of entries retrieved each call.
         if kwargs['size'] > 500:
             kwargs['size'] = 500
             kwargs['query'] = query
@@ -103,7 +102,7 @@ def grab(args):
 
         # Flatten all records to dot notation
         records = []
-        for i,hit in enumerate(results):
+        for i, hit in enumerate(results):
             if i >= args.total:
                 break
             if 'sort' in hit:
@@ -114,7 +113,7 @@ def grab(args):
                 records.append(dict(flatten(hit)))
 
     except:
-        raise SystemExit("Error connecting to ElasticSearch at '{}'. Please ensure that ElasticSearch is running, and your credentials are correct.".format(args.host))
+        raise SystemExit(f'Error connecting to ElasticSearch at "{args.host}". Please ensure that ElasticSearch is running, and your credentials are correct.')
 
     if len(records) == 0:
         raise SystemExit('Query returned no results')
