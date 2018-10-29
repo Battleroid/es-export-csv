@@ -4,6 +4,7 @@ from getpass import getpass, getuser
 from datetime import datetime, timedelta
 
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import scan
 
 
 def grab(args):
@@ -60,14 +61,25 @@ def grab(args):
     else:
         query['query']['bool']['must'].append({'match_all': {}})
 
+    args.total = int(args.total)
     # Search for records
     kwargs = {}
     kwargs['index'] = args.index
-    kwargs['size'] = int(args.total)
-    kwargs['body'] = query
+    kwargs['size'] = args.total
     if args.fields:
         kwargs['_source_include'] = args.fields
-    results = es.search(**kwargs)
+
+    results = None
+    #Scan if we're looking for more than 500 results. Note that size
+    #for scan denotes # of entries retrieved each call.
+    if kwargs['size'] > 500:
+        kwargs['size'] = 500
+        kwargs['query'] = query
+        results = scan(es, **kwargs)
+    else:
+        kwargs['body'] = query
+        results = es.search(**kwargs)
+        results = results['hits']['hits']
 
     def flatten(d, path=None):
         """
@@ -88,16 +100,20 @@ def grab(args):
 
         return l
 
-    if results['hits']['total'] == 0:
-        raise SystemExit('Query returned no results')
-
     # Flatten all records to dot notation
     records = []
-    for hit in results['hits']['hits']:
+    for i,hit in enumerate(results):
+        if i >= args.total:
+            break
+        if 'sort' in hit:
+            del hit['sort']
         if args.only_source:
             records.append(dict(flatten(hit['_source'])))
         else:
             records.append(dict(flatten(hit)))
+
+    if len(records) == 0:
+        raise SystemExit('Query returned no results')
 
     # Setup CSV field names
     field_names = set()
