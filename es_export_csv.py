@@ -1,12 +1,12 @@
 import argparse
 import csv
+import logging
 from getpass import getpass, getuser
 from datetime import datetime, timedelta
-
-import logging
-logging.getLogger('elasticsearch').setLevel(logging.ERROR)
-
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import scan
+
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
 
 
 def grab(args):
@@ -60,48 +60,63 @@ def grab(args):
     else:
         query['query']['bool']['must'].append({'match_all': {}})
 
+    args.total = int(args.total)
     # Search for records
     kwargs = {}
     kwargs['index'] = args.index
-    kwargs['size'] = int(args.total)
-    kwargs['body'] = query
+    kwargs['size'] = args.total
     if args.fields:
         kwargs['_source_include'] = args.fields
 
     try:
-        results = es.search(**kwargs)
-    except:
-        raise SystemExit("Error connecting to ElasticSearch at '{}'. Please ensure that ElasticSearch is running, and your credentials are correct.".format(args.host))
-
-    def flatten(d, path=None):
-        """
-        Returns list of fields and their path recursively separated by dot
-        notation.
-        """
-        l = []
-        path = path or []
-        for key, value in d.items():
-            if isinstance(value, dict):
-                for item in flatten(value, [*path, key]):
-                    l.append(item)
-            else:
-                if isinstance(value, list):
-                    l.append(('.'.join([*path, key]), ','.join(value)))
-                else:
-                    l.append(('.'.join([*path, key]), value))
-
-        return l
-
-    if results['hits']['total'] == 0:
-        raise SystemExit('Query returned no results')
-
-    # Flatten all records to dot notation
-    records = []
-    for hit in results['hits']['hits']:
-        if args.only_source:
-            records.append(dict(flatten(hit['_source'])))
+        results = None
+        # Scan if we're looking for more than 500 results. Note that size
+        # for scan denotes number of entries retrieved each call.
+        if kwargs['size'] > 500:
+            kwargs['size'] = 500
+            kwargs['query'] = query
+            results = scan(es, **kwargs)
         else:
-            records.append(dict(flatten(hit)))
+            kwargs['body'] = query
+            results = es.search(**kwargs)
+            results = results['hits']['hits']
+
+        def flatten(d, path=None):
+            """
+            Returns list of fields and their path recursively separated by dot
+            notation.
+            """
+            l = []
+            path = path or []
+            for key, value in d.items():
+                if isinstance(value, dict):
+                    for item in flatten(value, [*path, key]):
+                        l.append(item)
+                else:
+                    if isinstance(value, list):
+                        l.append(('.'.join([*path, key]), ','.join(value)))
+                    else:
+                        l.append(('.'.join([*path, key]), value))
+
+            return l
+
+        # Flatten all records to dot notation
+        records = []
+        for i, hit in enumerate(results):
+            if i >= args.total:
+                break
+            if 'sort' in hit:
+                del hit['sort']
+            if args.only_source:
+                records.append(dict(flatten(hit['_source'])))
+            else:
+                records.append(dict(flatten(hit)))
+
+    except:
+        raise SystemExit(f'Error connecting to ElasticSearch at "{args.host}". Please ensure that ElasticSearch is running, and your credentials are correct.')
+
+    if len(records) == 0:
+        raise SystemExit('Query returned no results')
 
     # Setup CSV field names
     field_names = set()
