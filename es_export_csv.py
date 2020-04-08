@@ -66,7 +66,7 @@ def grab(args):
     kwargs['index'] = args.index
     kwargs['size'] = args.total
     if args.fields:
-        kwargs['_source_include'] = args.fields
+        kwargs['_source_includes'] = args.fields
 
     try:
         results = None
